@@ -1,0 +1,141 @@
+# .gitignore para AzerothCore WotLK Development
+
+# Build artifacts
+code/build/
+code/bin/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+
+# Compiled binaries
+authserver
+worldserver
+mapextractor
+vmap4extractor
+vmap4assembler
+mmaps_generator
+
+# Data files (grandes demais para git)
+data/mysql/
+data/maps/
+data/vmaps/
+data/Buildings/
+data/mmaps/
+data/dbc/
+data/logs/
+*.log
+
+# Out of scope for this repo: only the container runner is versioned
+samples/
+data/
+notes/
+code/
+docs/
+
+# Ccache
+.ccache/
+*.ccache
+
+# MySQL
+*.sql.gz
+*.sql.bz2
+
+# Configs com senhas
+data/configs/*.conf
+!data/configs/*.conf.dist
+
+# Podman/Docker
+.container_id
+*.pid
+*.sock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+/tmp/
+/temp/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# Ninja
+.ninja_deps
+.ninja_log
+build.ninja
+rules.ninja
+
+# Cores e dumps
+core
+core.*
+*.core
+*.dump
+
+# Credentials e secrets
+.env
+.env.local
+*.key
+*.pem
+*.crt
+secrets/
+
+# OS specific
+Thumbs.db
+Desktop.ini
+.Trash-*
+.directory
+
+# Backup files
+*~
+\#*\#
+.\#*
+
+# Archives
+*.tar.gz
+*.tar.bz2
+*.zip
+*.rar
+*.7z
+
+# Package managers
+node_modules/
+vendor/
+.bundle/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+
+# Rust (se usar ferramentas em Rust)
+target/
+Cargo.lock
+
+# Go (se usar ferramentas em Go)
+go.sum
+vendor/
+
+# Local development
+local/
+scratch/
+playground/
