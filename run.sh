@@ -40,9 +40,14 @@ ensure_volume() { # <volume> [seed-dir]
 ensure_volume "${APP_NAME}-prefix"
 ensure_volume "${APP_NAME}-cache"
 
-# Allocate a TTY only when we have one (keeps scripted runs working).
+# DETACH=1 runs the container in the background (survives the launching shell).
+# Otherwise allocate a TTY when we have one (keeps scripted runs working).
 TTY=()
-[ -t 0 ] && TTY=(-it)
+if [ "${DETACH:-0}" = "1" ]; then
+  TTY=(-d)
+elif [ -t 0 ]; then
+  TTY=(-it)
+fi
 
 # Hardening baseline shared by both modes: rootless, no caps, read-only root,
 # render node only (no card0, no uinput, no udev).
