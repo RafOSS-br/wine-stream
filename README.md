@@ -11,11 +11,17 @@ one device: the GPU render node.
 |---|---|
 | Wine + DXVK | Runs the `.exe`, renders D3D over Vulkan on the GPU |
 | Sway (headless) + Xwayland | Gives the app a display |
-| Sunshine (legacy XTest build) | Captures the display (wlr-screencopy), encodes (VAAPI), streams to Moonlight |
+| Sunshine (stock, pinned RPM) | Captures the display (wlr-screencopy), encodes (VAAPI), streams to Moonlight |
+| uinput shim (`image/shim/`) | Makes Sunshine's input work rootless |
 
-Input is the trick: Moonlight input is injected via **XTest** straight into
-Xwayland over the X socket. That is what makes a fully rootless, `cap-drop=ALL`
-container possible — the usual `/dev/uinput` path cannot work rootless.
+Input is the trick: Sunshine only knows how to create virtual input devices
+through `/dev/uinput`, which the kernel forbids in a rootless container. The
+shim is a small LD_PRELOAD library that emulates the uinput protocol in
+userspace and re-emits every event as **XTest** calls into Xwayland, over the
+X socket. Sunshine believes its devices are real; the container needs no
+device nodes, no udev, no capabilities. Gamepad devices are accepted but
+their events are dropped (v1). Upgrading Sunshine = bumping
+`SUNSHINE_VERSION` in `image/Containerfile`.
 
 ## Isolation
 
@@ -27,7 +33,7 @@ to `127.0.0.1` only.
 ## Usage
 
 ```bash
-# 1) Build the image (once; compiles Sunshine legacy — slow the first time)
+# 1) Build the image (once)
 podman build -t wine-stream:latest image/
 
 # 2) Create the wineprefix for your app (once per app)

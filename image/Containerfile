@@ -1,30 +1,16 @@
 # wine-stream: hardened, rootless container for Windows executables.
-# Stage 1: build Sunshine "legacy" (XTest input backend).
-# Stage 2: lean runtime (Sway + Xwayland + Wine + DXVK + Mesa/VAAPI).
+# Stage 1: build the uinput->XTest shim (lets stock Sunshine inject input
+#          without /dev/uinput — impossible rootless — by emulating the
+#          uinput protocol in userspace over the X socket).
+# Stage 2: lean runtime (Sway + Xwayland + Wine + DXVK + Mesa/VAAPI + Sunshine).
 
-# ===== Stage 1: Sunshine legacy (XTest) — only tag with -DSUNSHINE_USE_LEGACY_INPUT =====
-FROM registry.fedoraproject.org/fedora:43 AS sunshine-build
-RUN dnf -y install gcc gcc-c++ cmake ninja-build git rpm-build nodejs npm \
-    boost-devel libcap-devel libcurl-devel libdrm-devel libevdev-devel \
-    libva-devel libvdpau-devel libX11-devel libxcb-devel libXcursor-devel \
-    libXfixes-devel libXi-devel libXinerama-devel libXrandr-devel libXtst-devel \
-    mesa-libGL-devel miniupnpc-devel numactl-devel openssl-devel opus-devel \
-    pulseaudio-libs-devel wayland-devel libdisplay-info-devel \
-    wget which && dnf clean all
-WORKDIR /src
-RUN git clone --branch v2025.118.151840 --depth 1 --recurse-submodules \
-    https://github.com/LizardByte/Sunshine.git .
-RUN dnf -y install libnotify-devel libappindicator-gtk3-devel doxygen graphviz && dnf clean all
-# fc43: miniupnpc header uses size_t without including stddef.h -> inject it
-RUN sed -i '1i #include <stddef.h>' /usr/include/miniupnpc/upnpcommands.h
-WORKDIR /src/build
-RUN cmake -G Ninja \
-    -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
-    -DSUNSHINE_USE_LEGACY_INPUT=ON -DSUNSHINE_ENABLE_TRAY=OFF \
-    -DSUNSHINE_ENABLE_X11=ON -DSUNSHINE_ENABLE_WAYLAND=ON -DSUNSHINE_ENABLE_DRM=OFF \
-    -DSUNSHINE_ENABLE_CUDA=OFF -DBUILD_TESTS=OFF \
-    -DSUNSHINE_ASSETS_DIR=share/sunshine -DSUNSHINE_EXECUTABLE_PATH=/usr/bin/sunshine \
-    /src && ninja && cpack -G RPM
+ARG SUNSHINE_VERSION=2026.516.143833
+
+# ===== Stage 1: uinput shim =====
+FROM registry.fedoraproject.org/fedora:43 AS shim-build
+RUN dnf -y install gcc libX11-devel libXtst-devel && dnf clean all
+COPY shim/uinput-shim.c /src/
+RUN gcc -O2 -Wall -Wextra -shared -fPIC -o /src/uinput-shim.so /src/uinput-shim.c -lX11 -lXtst
 
 # ===== Stage 2: runtime =====
 FROM registry.fedoraproject.org/fedora:43
@@ -56,11 +42,16 @@ RUN dnf install -y \
       mesa-dri-drivers.i686 mesa-libGL.i686 alsa-lib.i686 \
  && dnf clean all
 
-# Sunshine legacy (XTest) from the build stage
-COPY --from=sunshine-build /src/build/cpack_artifacts/Sunshine.rpm /tmp/sunshine.rpm
-RUN dnf install -y /tmp/sunshine.rpm binutils && rm -f /tmp/sunshine.rpm && \
-    strings /usr/bin/sunshine | grep -q XTestFakeButtonEvent && \
-    dnf remove -y binutils && dnf clean all    # gate: XTest symbols present
+# Sunshine: official release RPM, pinned. Input comes from the uinput shim.
+ARG SUNSHINE_VERSION
+RUN dnf install -y \
+      "https://github.com/LizardByte/Sunshine/releases/download/v${SUNSHINE_VERSION}/Sunshine-${SUNSHINE_VERSION}-1.fc$(rpm -E %fedora).x86_64.rpm" \
+      libXtst \
+ && dnf clean all
+
+# uinput->XTest shim (LD_PRELOADed into Sunshine by the entrypoint)
+COPY --from=shim-build /src/uinput-shim.so /usr/local/lib/uinput-shim.so
+COPY shim/test-shim.py /usr/local/share/uinput-shim/test-shim.py
 
 # DXVK (D3D8-D3D11 over Vulkan)
 RUN set -eux; \

@@ -66,11 +66,14 @@ done
 export DISPLAY=":$(basename "${XSOCK:-X0}" | tr -d 'X')"
 echo "DISPLAY=$DISPLAY (Xwayland, XTest input target)"
 
-# 5) Sunshine: wlr capture (WAYLAND_DISPLAY) + XTest input (DISPLAY, no /dev/uinput).
-#    Without uinput the legacy Sunshine build falls back to XTest automatically.
+# 5) Sunshine: wlr capture (WAYLAND_DISPLAY) + input via the uinput->XTest shim
+#    (DISPLAY). The shim emulates /dev/uinput in userspace, so stock Sunshine
+#    works rootless with no real input devices.
 start_sunshine() {
   while true; do
-    WAYLAND_DISPLAY="$WAYLAND_DISPLAY" DISPLAY="$DISPLAY" sunshine /etc/sunshine/sunshine.conf
+    LD_PRELOAD=/usr/local/lib/uinput-shim.so \
+      WAYLAND_DISPLAY="$WAYLAND_DISPLAY" DISPLAY="$DISPLAY" \
+      sunshine /etc/sunshine/sunshine.conf
     echo "WARN: sunshine exited (rc=$?), restarting in 3s"; sleep 3
   done
 }
